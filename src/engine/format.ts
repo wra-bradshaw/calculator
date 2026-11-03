@@ -128,10 +128,13 @@ function isRectangularMatrix(json: Json): boolean {
 }
 
 /** True for an integer, or a list or matrix of integers: no decimal needed. */
+/** The engine writes exact integers like 30! as `"26525…848e+7"`. */
+const INTEGER_STRING = /^-?\d+(e\+?\d+)?$/i
+
 export function isIntegral(json: Json): boolean {
   if (typeof json === 'number') return Number.isInteger(json)
   if (json && typeof json === 'object' && 'num' in json) {
-    return /^-?\d+$/.test(String((json as { num: string }).num))
+    return INTEGER_STRING.test(String((json as { num: string }).num))
   }
   if (Array.isArray(json) && (json[0] === 'List' || json[0] === 'Matrix')) {
     return json.slice(1).every(isIntegral)
@@ -143,7 +146,7 @@ export function isIntegral(json: Json): boolean {
 export function containsFloat(json: Json): boolean {
   if (typeof json === 'number') return !Number.isInteger(json)
   if (json && typeof json === 'object' && 'num' in json) {
-    return /[.eE]/.test(String((json as { num: string }).num))
+    return !INTEGER_STRING.test(String((json as { num: string }).num))
   }
   if (Array.isArray(json)) {
     if (json[0] === 'Measurement') return true

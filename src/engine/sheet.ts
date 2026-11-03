@@ -388,10 +388,12 @@ function present(
   let exact: string | undefined = exactLatex(ce, value)
   let approx: string | undefined
 
-  if (value.unknowns.length === 0 && !isIntegral(json)) {
+  if (value.unknowns.length === 0) {
     const n = value.N()
     const isNaN = sym(n) === 'NaN' || (isNumber(n) && Number.isNaN(n.re))
     if (!isNaN) approx = numericLatex(n.json, settings.digits) ?? undefined
+    // Integers are already exact decimals, unless too long to read at a glance.
+    if (approx && isIntegral(json) && !approx.includes('\\times10^')) approx = undefined
   }
 
   if (exact.length > MAX_LATEX_LENGTH) {

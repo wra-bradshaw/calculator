@@ -73,6 +73,12 @@ describe('evaluation', () => {
     expect(one('2+3')).toMatchObject({ exact: '5', approx: undefined })
   })
 
+  it('keeps big integers exact', () => {
+    const r = one('30!')
+    expect(r).toMatchObject({ exact: '265\\,252\\,859\\,812\\,191\\,058\\,636\\,308\\,480\\,000\\,000' })
+    expect(r).toMatchObject({ approx: '2.652528598\\times10^{32}' })
+  })
+
   it('shows decimal input as decimals', () => {
     const r = one('1.5\\times2.25')
     expect(r).toMatchObject({ exact: '3.375' })
