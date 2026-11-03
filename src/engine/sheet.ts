@@ -79,11 +79,10 @@ export function evaluateSheet(
 
     const brokenDep = row.deps.find((dep) => failed.has(dep))
     if (brokenDep) {
-      const source = failed.get(brokenDep)!
       report({
         result: {
           kind: 'error',
-          message: `${brokenDep} isn't defined yet (see row ${source.index + 1})`,
+          message: `Uses ${brokenDep}, whose definition isn't complete`,
         },
       })
       continue

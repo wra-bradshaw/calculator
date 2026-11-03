@@ -207,7 +207,7 @@ describe('variables and functions', () => {
   it('errors on rows that use an unfinished definition', () => {
     const { results } = run(['a=2+', 'a+1'])
     expect(results[0]).toEqual({ kind: 'incomplete' })
-    expect(results[1]).toMatchObject({ kind: 'error', message: "a isn't defined yet (see row 1)" })
+    expect(results[1]).toMatchObject({ kind: 'error', message: "Uses a, whose definition isn't complete" })
   })
 
   it('refuses to redefine constants', () => {
