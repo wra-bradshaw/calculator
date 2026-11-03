@@ -1,3 +1,7 @@
+# Only install package versions published at least a day ago (the CI default),
+# so local resolution matches what Cloudflare's build accepts.
+minimumReleaseAge: 1440
+
 # Wrangler's native tools; their install scripts fetch platform binaries.
 allowBuilds:
   esbuild: true
