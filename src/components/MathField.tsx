@@ -41,6 +41,12 @@ export function MathField({ mathlive, value, placeholder, register, ...handlers 
 
     mf.addEventListener('input', () => latest.current.onChange(mf.value))
     mf.addEventListener('focusin', () => latest.current.onFocus())
+    // The virtual keyboard's return key runs MathLive's `commit`, which fires
+    // `change` without a keydown. MathLive also fires `change` on blur, so only
+    // count it as Enter while the field still has focus.
+    mf.addEventListener('change', () => {
+      if (document.activeElement === mf) latest.current.onEnter()
+    })
     mf.addEventListener('move-out', (event) => {
       const direction = event.detail.direction
       if (direction === 'upward' || direction === 'downward') {
