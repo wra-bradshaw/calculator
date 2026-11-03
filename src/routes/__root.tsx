@@ -5,6 +5,7 @@ import {
   Scripts,
   createRootRoute,
 } from '@tanstack/react-router'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -33,8 +34,8 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       <head>
         <HeadContent />
       </head>
-      <body className="bg-slate-50 text-slate-900 antialiased">
-        {children}
+      <body className="antialiased">
+        <TooltipProvider>{children}</TooltipProvider>
         <Scripts />
       </body>
     </html>

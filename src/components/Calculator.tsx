@@ -1,7 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MathfieldElement } from 'mathlive'
+import { EraserIcon, XIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Kbd } from '@/components/ui/kbd'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { cn } from '@/lib/utils'
 import { SheetEvaluator, type SheetState } from '../engine/client'
-import type { RowInput, Settings } from '../engine/types'
+import type { AngleUnit, RowInput, Settings } from '../engine/types'
 import { useMathLive } from '../lib/mathlive'
 import { DEFAULT_SETTINGS, load, save } from '../lib/storage'
 import { MathField } from './MathField'
@@ -14,6 +27,8 @@ const newRow = (latex = ''): RowInput => ({ id: crypto.randomUUID(), latex })
 function withTrailingEmpty(rows: RowInput[]): RowInput[] {
   return rows.length > 0 && rows[rows.length - 1].latex === '' ? rows : [...rows, newRow()]
 }
+
+const DIGIT_OPTIONS = [4, 6, 8, 10, 12, 15]
 
 const EXAMPLES = [
   'a=3',
@@ -125,7 +140,7 @@ export function Calculator() {
   }
 
   if (!mathlive || !rows) {
-    return <div className="p-8 text-center text-slate-400">Loading…</div>
+    return <div className="p-8 text-center text-muted-foreground">Loading…</div>
   }
 
   const isBlank = rows.every((r) => r.latex === '')
@@ -133,119 +148,104 @@ export function Calculator() {
   return (
     <div className="mx-auto flex min-h-screen max-w-4xl flex-col gap-4 px-4 py-6 sm:px-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Calculator</h1>
-        <div className="flex items-center gap-3 text-sm">
-          <Segmented
-            value={settings.angleUnit}
-            options={[
-              { value: 'rad', label: 'Rad' },
-              { value: 'deg', label: 'Deg' },
-            ]}
-            onChange={(angleUnit) => setSettings((s) => ({ ...s, angleUnit }))}
-          />
-          <label className="flex items-center gap-2 text-slate-600">
-            Digits
-            <select
-              value={settings.digits}
-              onChange={(e) => setSettings((s) => ({ ...s, digits: Number(e.target.value) }))}
-              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-slate-900"
-            >
-              {[4, 6, 8, 10, 12, 15].map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            onClick={clearAll}
-            className="rounded-md px-2 py-1 text-slate-600 hover:bg-slate-200"
+        <h1 className="font-heading text-xl font-semibold tracking-tight">Calculator</h1>
+        <div className="flex items-center gap-2">
+          <ToggleGroup
+            variant="outline"
+            size="sm"
+            spacing={0}
+            value={[settings.angleUnit]}
+            onValueChange={(value: string[]) => {
+              // Ignore deselection: one unit is always active.
+              const angleUnit = value[0] as AngleUnit | undefined
+              if (angleUnit) setSettings((s) => ({ ...s, angleUnit }))
+            }}
+            aria-label="Angle unit"
           >
+            <ToggleGroupItem value="rad">Rad</ToggleGroupItem>
+            <ToggleGroupItem value="deg">Deg</ToggleGroupItem>
+          </ToggleGroup>
+          <Select
+            items={DIGIT_OPTIONS.map((d) => ({ value: d, label: `${d} digits` }))}
+            value={settings.digits}
+            onValueChange={(digits) => {
+              if (digits !== null) setSettings((s) => ({ ...s, digits }))
+            }}
+          >
+            <SelectTrigger size="sm" aria-label="Digits shown">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DIGIT_OPTIONS.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {d} digits
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" size="sm" onClick={clearAll}>
+            <EraserIcon data-icon="inline-start" />
             Clear
-          </button>
+          </Button>
         </div>
       </header>
 
       <Toolbar mathlive={mathlive} onInsert={insert} />
 
-      <ol className="divide-y divide-slate-200 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-        {rows.map((row, index) => (
-          <li key={row.id} className="group">
-            <div className="flex items-center gap-3 py-3 pr-3">
-              <span className="w-9 shrink-0 select-none text-right text-xs tabular-nums text-slate-400">
-                {index + 1}
-              </span>
-              <MathField
+      <Card className="gap-0 py-0">
+        <ol className="divide-y">
+          {rows.map((row, index) => (
+            <li key={row.id} className="group">
+              <div className="flex items-center gap-3 py-3 pr-3">
+                <span className="w-9 shrink-0 select-none text-right text-xs tabular-nums text-muted-foreground">
+                  {index + 1}
+                </span>
+                <MathField
+                  mathlive={mathlive}
+                  value={row.latex}
+                  placeholder={index === 0 && isBlank ? '\\text{Type an expression…}' : undefined}
+                  register={(field) => {
+                    if (field) fields.current.set(row.id, field)
+                    else fields.current.delete(row.id)
+                  }}
+                  {...handlersFor(row, index)}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => removeRow(row.id)}
+                  aria-label={`Delete row ${index + 1}`}
+                  className={cn(
+                    'text-muted-foreground opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
+                    row.latex === '' && 'invisible',
+                  )}
+                >
+                  <XIcon />
+                </Button>
+              </div>
+              <Result
                 mathlive={mathlive}
-                value={row.latex}
-                placeholder={index === 0 && isBlank ? '\\text{Type an expression…}' : undefined}
-                register={(field) => {
-                  if (field) fields.current.set(row.id, field)
-                  else fields.current.delete(row.id)
-                }}
-                {...handlersFor(row, index)}
+                result={sheet.results.get(row.id)}
+                pending={sheet.pending.has(row.id)}
               />
-              <button
-                type="button"
-                onClick={() => removeRow(row.id)}
-                aria-label={`Delete row ${index + 1}`}
-                className={`flex size-7 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 hover:bg-slate-100 hover:text-slate-700 focus:opacity-100 group-hover:opacity-100 ${
-                  row.latex === '' ? 'invisible' : ''
-                }`}
-              >
-                ×
-              </button>
-            </div>
-            <Result
-              mathlive={mathlive}
-              result={sheet.results.get(row.id)}
-              pending={sheet.pending.has(row.id)}
-            />
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
+      </Card>
 
       {isBlank && (
-        <p className="text-center text-sm text-slate-500">
-          New here?{' '}
-          <button type="button" onClick={loadExamples} className="text-sky-700 underline">
+        <p className="text-center text-sm text-muted-foreground">
+          New here?
+          <Button variant="link" size="sm" onClick={loadExamples}>
             Load some examples
-          </button>
+          </Button>
         </p>
       )}
 
-      <footer className="mt-auto pt-6 text-center text-xs text-slate-400">
+      <footer className="mt-auto pt-6 text-center text-xs text-muted-foreground">
         Define variables with <code>a=3</code> and functions with <code>f(x)=…</code>. Equations
-        are solved for <code>x</code>. Enter adds a row.
+        are solved for <code>x</code>. <Kbd>Enter</Kbd> adds a row.
       </footer>
-    </div>
-  )
-}
-
-function Segmented<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T
-  options: { value: T; label: string }[]
-  onChange: (value: T) => void
-}) {
-  return (
-    <div className="flex rounded-md bg-slate-200 p-0.5">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          className={`rounded px-2.5 py-0.5 ${
-            value === option.value ? 'bg-white shadow-sm' : 'text-slate-600'
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
     </div>
   )
 }

@@ -1,4 +1,6 @@
 import { memo } from 'react'
+import { TriangleAlertIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { RowResult } from '../engine/types'
 import type { MathLive } from '../lib/mathlive'
 
@@ -13,9 +15,10 @@ export const Result = memo(function Result({ mathlive, result, pending }: Props)
   if (!content) return null
   return (
     <div
-      className={`flex flex-wrap items-center justify-end gap-x-4 gap-y-1 pb-2 pl-12 pr-10 ${
-        pending ? 'opacity-40 transition-opacity delay-300 duration-300' : ''
-      }`}
+      className={cn(
+        'flex flex-wrap items-center justify-end gap-x-4 gap-y-1 pb-3 pl-12 pr-12',
+        pending && 'opacity-40 transition-opacity delay-300 duration-300',
+      )}
     >
       {content}
     </div>
@@ -31,16 +34,16 @@ function renderResult(mathlive: MathLive, result: RowResult | undefined) {
       return null
 
     case 'timeout':
-      return <Message tone="warning">Stopped: this took longer than 5 seconds</Message>
+      return <Warning>Stopped: this took longer than 5 seconds</Warning>
 
     case 'error':
-      return <Message tone="warning">{result.message}</Message>
+      return <Warning>{result.message}</Warning>
 
     case 'value': {
       if (!result.exact && !result.approx && !result.note) return null
       return (
         <>
-          {result.note && <span className="text-sm text-slate-500">{result.note}</span>}
+          {result.note && <span className="text-sm text-muted-foreground">{result.note}</span>}
           {result.exact && (
             <MathValue mathlive={mathlive} prefix={result.bare ? '' : '='} latex={result.exact} />
           )}
@@ -67,9 +70,10 @@ function MathValue({
   const markup = mathlive.convertLatexToMarkup(latex)
   return (
     <div
-      className={`flex max-w-full items-center gap-2 overflow-x-auto rounded-lg px-3 py-1 ${
-        muted ? 'text-slate-500' : 'bg-slate-100 text-slate-900'
-      }`}
+      className={cn(
+        'flex max-w-full items-center gap-2 overflow-x-auto rounded-lg px-3 py-1',
+        muted ? 'text-muted-foreground' : 'bg-muted text-foreground',
+      )}
     >
       {prefix && <span className="select-none text-lg">{prefix}</span>}
       <span
@@ -81,18 +85,10 @@ function MathValue({
   )
 }
 
-function Message({ tone, children }: { tone: 'warning'; children: React.ReactNode }) {
+function Warning({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className={`flex items-center gap-2 text-sm ${tone === 'warning' ? 'text-amber-700' : ''}`}
-    >
-      <svg viewBox="0 0 20 20" fill="currentColor" className="size-4 shrink-0" aria-hidden>
-        <path
-          fillRule="evenodd"
-          d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
-          clipRule="evenodd"
-        />
-      </svg>
+    <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-500">
+      <TriangleAlertIcon className="size-4 shrink-0" aria-hidden />
       <span>{children}</span>
     </div>
   )

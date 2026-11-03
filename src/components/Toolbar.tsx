@@ -1,8 +1,12 @@
+import { Grid2X2Icon, Grid3X3Icon, type LucideIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { MathLive } from '../lib/mathlive'
 
 interface Template {
-  /** Shown on the button, as LaTeX. */
-  label: string
+  /** Shown on the button, as LaTeX, or an icon. */
+  label: string | LucideIcon
   title: string
   /** Inserted into the focused field; `#0` is the selection, `#?` a placeholder. */
   insert: string
@@ -26,12 +30,12 @@ const GROUPS: Template[][] = [
   ],
   [
     {
-      label: '\\left(\\begin{smallmatrix}\\square&\\square\\\\\\square&\\square\\end{smallmatrix}\\right)',
+      label: Grid2X2Icon,
       title: '2×2 matrix',
       insert: '\\begin{pmatrix}#?&#?\\\\#?&#?\\end{pmatrix}',
     },
     {
-      label: '\\left(\\begin{smallmatrix}\\square&\\square&\\square\\\\\\square&\\square&\\square\\\\\\square&\\square&\\square\\end{smallmatrix}\\right)',
+      label: Grid3X3Icon,
       title: '3×3 matrix',
       insert: '\\begin{pmatrix}#?&#?&#?\\\\#?&#?&#?\\\\#?&#?&#?\\end{pmatrix}',
     },
@@ -57,23 +61,37 @@ export function Toolbar({ mathlive, onInsert }: Props) {
   return (
     <div className="flex flex-wrap gap-2">
       {GROUPS.map((group, i) => (
-        <div key={i} className="flex flex-wrap gap-1 rounded-lg bg-white p-1 shadow-sm ring-1 ring-slate-200">
+        <ButtonGroup key={i} className="flex-wrap">
           {group.map((template) => (
-            <button
-              key={template.title}
-              type="button"
-              title={template.title}
-              aria-label={template.title}
-              // Keep focus (and the caret) in the math field.
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => onInsert(template.insert)}
-              className="flex h-9 min-w-9 items-center justify-center rounded-md px-2 text-slate-700 hover:bg-slate-100 active:bg-slate-200 [&_.ML\_\_latex]:text-[0.95rem]"
-              dangerouslySetInnerHTML={{
-                __html: mathlive.convertLatexToMarkup(template.label),
-              }}
-            />
+            <Tooltip key={template.title}>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="icon-lg"
+                    aria-label={template.title}
+                    // Keep focus (and the caret) in the math field.
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => onInsert(template.insert)}
+                    className="h-10 w-auto min-w-10 px-2"
+                  />
+                }
+              >
+                {typeof template.label === 'string' ? (
+                  <span
+                    className="toolbar-math"
+                    dangerouslySetInnerHTML={{
+                      __html: mathlive.convertLatexToMarkup(template.label),
+                    }}
+                  />
+                ) : (
+                  <template.label className="size-5" />
+                )}
+              </TooltipTrigger>
+              <TooltipContent>{template.title}</TooltipContent>
+            </Tooltip>
           ))}
-        </div>
+        </ButtonGroup>
       ))}
     </div>
   )
