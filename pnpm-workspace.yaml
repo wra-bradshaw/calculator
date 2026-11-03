@@ -1,0 +1,4 @@
+# Wrangler's native tools; their install scripts fetch platform binaries.
+allowBuilds:
+  esbuild: true
+  workerd: true
