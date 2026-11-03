@@ -5,6 +5,7 @@ import {
   containsFloat,
   errorMessage,
   exactLatex,
+  isIntegral,
   numericLatex,
 } from './format'
 import { classifyRow, rewriteApplications, type RowShape } from './latex'
@@ -319,8 +320,11 @@ function evaluateRow(
       const value = rhs.evaluate()
       const error = errorMessage(value.json)
       if (error) return { result: { kind: 'error', message: error } }
-      // `a = 3` needs no answer; `a = 3 + 4` shows `7`.
-      const trivial = /^\s*-?\d+(\.\d+)?\s*$/.test(shape.rhs)
+      // `a = 3` and `A = (matrix)` need no answer; `a = 3 + 4` shows `7`.
+      const trivial =
+        /^\s*-?\d+(\.\d+)?\s*$/.test(shape.rhs) ||
+        (/^\s*\\begin\{[pbvV]?matrix\}/.test(shape.rhs) &&
+          exactLatex(ce, rhs) === exactLatex(ce, value))
       return {
         result: trivial ? { kind: 'value' } : present(ce, value, settings),
         definition: { name: row.defines!, value: value.json },
@@ -384,7 +388,7 @@ function present(
   let exact: string | undefined = exactLatex(ce, value)
   let approx: string | undefined
 
-  if (value.unknowns.length === 0) {
+  if (value.unknowns.length === 0 && !isIntegral(json)) {
     const n = value.N()
     const isNaN = sym(n) === 'NaN' || (isNumber(n) && Number.isNaN(n.re))
     if (!isNaN) approx = numericLatex(n.json, settings.digits) ?? undefined
@@ -465,7 +469,7 @@ function describeSolutions(
   settings: Settings,
 ): RowResult {
   if (solutions.length === 0) {
-    return { kind: 'value', exact: '\\text{no solution}' }
+    return { kind: 'value', bare: true, exact: '\\text{no solution}' }
   }
 
   const format = (fn: (value: Expression) => string | null) => {
@@ -489,6 +493,7 @@ function describeSolutions(
   )
   return {
     kind: 'value',
+    bare: true,
     exact,
     approx: approx && !sameNumber(approx, exact) ? approx : undefined,
   }

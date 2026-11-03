@@ -125,7 +125,7 @@ describe('evaluation', () => {
 
 describe('equations', () => {
   it('solves for x', () => {
-    expect(one('x^2-5x+6=0')).toMatchObject({ exact: 'x=3,\\quad x=2' })
+    expect(one('x^2-5x+6=0')).toMatchObject({ bare: true, exact: 'x=3,\\quad x=2' })
   })
 
   it('solves for the only unknown', () => {
@@ -184,6 +184,7 @@ describe('variables and functions', () => {
 
   it('stores matrices', () => {
     const { results } = run(['A=\\begin{pmatrix}1&2\\\\3&4\\end{pmatrix}', '\\det(A)', 'A^2'])
+    expect(results[0]).toEqual({ kind: 'value' })
     expect(results[1]).toMatchObject({ exact: '-2' })
     expect(results[2]).toMatchObject({ exact: expect.stringMatching(/^\\begin\{pmatrix\}7 & 10/) })
   })

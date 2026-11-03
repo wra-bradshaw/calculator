@@ -17,7 +17,14 @@ export type RowResult =
   | { kind: 'incomplete' }
   /** A function definition: nothing to show besides confirming it parsed. */
   | { kind: 'defined'; name: string }
-  | { kind: 'value'; exact?: string; approx?: string; note?: string }
+  | {
+      kind: 'value'
+      exact?: string
+      approx?: string
+      note?: string
+      /** The result is a statement such as `x=2`, shown without a leading `=`. */
+      bare?: boolean
+    }
   | { kind: 'error'; message: string }
   | { kind: 'timeout' }
 

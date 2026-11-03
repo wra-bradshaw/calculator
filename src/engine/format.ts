@@ -127,6 +127,18 @@ function isRectangularMatrix(json: Json): boolean {
   )
 }
 
+/** True for an integer, or a list or matrix of integers: no decimal needed. */
+export function isIntegral(json: Json): boolean {
+  if (typeof json === 'number') return Number.isInteger(json)
+  if (json && typeof json === 'object' && 'num' in json) {
+    return /^-?\d+$/.test(String((json as { num: string }).num))
+  }
+  if (Array.isArray(json) && (json[0] === 'List' || json[0] === 'Matrix')) {
+    return json.slice(1).every(isIntegral)
+  }
+  return false
+}
+
 /** True if the expression contains a non-integer float anywhere. */
 export function containsFloat(json: Json): boolean {
   if (typeof json === 'number') return !Number.isInteger(json)
