@@ -59,9 +59,10 @@ interface Props {
 
 export function Toolbar({ mathlive, onInsert }: Props) {
   return (
-    <div className="flex flex-wrap gap-2">
+    // One scrolling strip on narrow screens; wraps once there's room.
+    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
       {GROUPS.map((group, i) => (
-        <ButtonGroup key={i} className="flex-wrap">
+        <ButtonGroup key={i} className="shrink-0">
           {group.map((template) => (
             <Tooltip key={template.title}>
               <TooltipTrigger

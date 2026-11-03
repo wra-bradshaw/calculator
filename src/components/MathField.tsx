@@ -33,7 +33,8 @@ export function MathField({ mathlive, value, placeholder, register, ...handlers 
   useEffect(() => {
     const mf = new mathlive.MathfieldElement()
     mf.smartFence = true
-    mf.mathVirtualKeyboardPolicy = 'auto'
+    // The keyboard is shown and hidden by the calculator, not per field.
+    mf.mathVirtualKeyboardPolicy = 'manual'
     mf.value = value
     if (placeholder) mf.placeholder = placeholder
     mf.className = 'block w-full'

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MathfieldElement } from 'mathlive'
-import { EraserIcon, XIcon } from 'lucide-react'
+import { EllipsisVerticalIcon, EraserIcon, KeyboardIcon, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Kbd } from '@/components/ui/kbd'
@@ -11,7 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { SheetEvaluator, type SheetState } from '../engine/client'
 import type { AngleUnit, RowInput, Settings } from '../engine/types'
@@ -54,6 +56,29 @@ export function Calculator() {
   const fields = useRef(new Map<string, MathfieldElement>())
   const lastFocused = useRef<string | null>(null)
   const evaluator = useRef<SheetEvaluator | null>(null)
+
+  // The virtual keyboard is shared by every row: on by default on touch
+  // devices, and toggled from the header.
+  const [keyboardOn, setKeyboardOn] = useState(false)
+  const keyboardOnRef = useRef(keyboardOn)
+  keyboardOnRef.current = keyboardOn
+
+  useEffect(() => {
+    setKeyboardOn(window.matchMedia('(pointer: coarse)').matches)
+  }, [])
+
+  useEffect(() => {
+    if (!mathlive) return
+    const keyboard = window.mathVirtualKeyboard
+    // Keep the last rows scrollable above the keyboard.
+    const onGeometryChange = () => {
+      document.body.style.paddingBottom = keyboard.visible
+        ? `${keyboard.boundingRect.height}px`
+        : ''
+    }
+    keyboard.addEventListener('geometrychange', onGeometryChange)
+    return () => keyboard.removeEventListener('geometrychange', onGeometryChange)
+  }, [mathlive])
 
   useEffect(() => {
     const saved = load()
@@ -113,14 +138,40 @@ export function Calculator() {
       focusRow(rows![direction === 'up' ? index - 1 : index + 1]?.id, direction === 'down'),
     onFocus: () => {
       lastFocused.current = row.id
+      if (keyboardOnRef.current) window.mathVirtualKeyboard.show()
     },
   })
 
-  const insert = (latex: string) => {
-    const active = [...fields.current].find(([, f]) => f === document.activeElement)?.[0]
-    const id = active ?? lastFocused.current ?? rows?.at(-1)?.id
+  /** The row the header and toolbar act on: focused, else last focused, else last. */
+  const activeField = () => {
+    const focused = [...fields.current].find(([, f]) => f === document.activeElement)?.[0]
+    const id = focused ?? lastFocused.current ?? rows?.at(-1)?.id
     const field = id ? fields.current.get(id) : undefined
-    if (!field) return
+    return field ? { id: id!, field } : null
+  }
+
+  const toggleKeyboard = (on: boolean) => {
+    setKeyboardOn(on)
+    activeField()?.field.focus()
+    if (on) window.mathVirtualKeyboard.show()
+    else window.mathVirtualKeyboard.hide()
+  }
+
+  const openMenu = (event: React.MouseEvent<HTMLElement>) => {
+    const active = activeField()
+    if (!active) return
+    active.field.focus()
+    const rect = event.currentTarget.getBoundingClientRect()
+    active.field.showMenu({
+      location: { x: rect.left, y: rect.bottom + 4 },
+      modifiers: { alt: false, control: false, shift: false, meta: false },
+    })
+  }
+
+  const insert = (latex: string) => {
+    const active = activeField()
+    if (!active) return
+    const { id, field } = active
     field.focus()
     field.insert(latex, { selectionMode: 'placeholder', format: 'latex' })
     // insert() doesn't fire an input event.
@@ -183,6 +234,39 @@ export function Calculator() {
               ))}
             </SelectContent>
           </Select>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Toggle
+                  variant="outline"
+                  size="sm"
+                  aria-label="Keyboard"
+                  pressed={keyboardOn}
+                  onPressedChange={toggleKeyboard}
+                  onMouseDown={(event) => event.preventDefault()}
+                />
+              }
+            >
+              <KeyboardIcon />
+            </TooltipTrigger>
+            <TooltipContent>Keyboard</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Math menu"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={openMenu}
+                />
+              }
+            >
+              <EllipsisVerticalIcon />
+            </TooltipTrigger>
+            <TooltipContent>Math menu (matrix rows, styles…)</TooltipContent>
+          </Tooltip>
           <Button variant="ghost" size="sm" onClick={clearAll}>
             <EraserIcon data-icon="inline-start" />
             Clear
@@ -195,11 +279,8 @@ export function Calculator() {
       <Card className="gap-0 py-0">
         <ol className="divide-y">
           {rows.map((row, index) => (
-            <li key={row.id} className="group">
-              <div className="flex items-center gap-3 py-3 pr-3">
-                <span className="w-9 shrink-0 select-none text-right text-xs tabular-nums text-muted-foreground">
-                  {index + 1}
-                </span>
+            <li key={row.id} className="group px-4 py-3">
+              <div className="flex items-center gap-2">
                 <MathField
                   mathlive={mathlive}
                   value={row.latex}
@@ -216,8 +297,8 @@ export function Calculator() {
                   onClick={() => removeRow(row.id)}
                   aria-label={`Delete row ${index + 1}`}
                   className={cn(
-                    'text-muted-foreground opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
-                    row.latex === '' && 'invisible',
+                    '-my-1 -mr-1.5 text-muted-foreground opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100',
+                    row.latex === '' && 'hidden',
                   )}
                 >
                   <XIcon />

@@ -20,26 +20,11 @@ math-field {
   padding: 0;
 }
 
-/* The per-field toggles only appear on the row in use (always on touch). */
+/* MathLive's per-field toggles: the virtual keyboard opens on its own on touch
+   devices, and the menu is still available from the context menu. */
 math-field::part(menu-toggle),
 math-field::part(virtual-keyboard-toggle) {
-  color: var(--muted-foreground);
-  opacity: 0;
-  transition: opacity 150ms;
-}
-
-li:hover math-field::part(menu-toggle),
-li:hover math-field::part(virtual-keyboard-toggle),
-math-field:focus-within::part(menu-toggle),
-math-field:focus-within::part(virtual-keyboard-toggle) {
-  opacity: 1;
-}
-
-@media (pointer: coarse) {
-  math-field::part(menu-toggle),
-  math-field::part(virtual-keyboard-toggle) {
-    opacity: 1;
-  }
+  display: none;
 }
 
 /* Static math rendered with convertLatexToMarkup. */
