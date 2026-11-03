@@ -113,6 +113,14 @@ export function Calculator() {
     })
   }, [])
 
+  // Start ready to type in the trailing empty row once the fields exist.
+  const autoFocused = useRef(false)
+  useEffect(() => {
+    if (!mathlive || !rows || autoFocused.current) return
+    autoFocused.current = true
+    focusRow(rows.at(-1)?.id)
+  }, [mathlive, rows, focusRow])
+
   const update = (fn: (rows: RowInput[]) => RowInput[]) =>
     setRows((rows) => withTrailingEmpty(fn(rows ?? [])))
 
