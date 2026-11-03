@@ -4,7 +4,7 @@ import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  server: { port: 3000 },
+  server: { port: 4317, strictPort: true },
   plugins: [
     tailwindcss(),
     tanstackStart({ spa: { enabled: true } }),
