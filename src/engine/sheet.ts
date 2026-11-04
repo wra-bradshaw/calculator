@@ -5,8 +5,8 @@ import {
   containsFloat,
   errorMessage,
   exactLatex,
+  isClosedForm,
   isIntegral,
-  isRationalValue,
   numericLatex,
   rationalize,
 } from './format'
@@ -340,7 +340,7 @@ function evaluateRow(
         definition: {
           name: row.defines!,
           value: value.json,
-          inexact: (decimal && !isRationalValue(value.json)) || undefined,
+          inexact: (decimal && !isClosedForm(value.json)) || undefined,
         },
       }
     }
@@ -401,8 +401,8 @@ function present(
   const note =
     value.operator === 'Integrate' ? 'No closed form found' : undefined
 
-  // Decimal input gives a decimal answer unless it's a fraction: `sin(0.5)`
-  // is shown as a decimal, `0.1+0.2` as `3/10 ≈ 0.3`.
+  // Decimal input gives a decimal answer unless it has a closed form:
+  // `sin(0.5)` is shown as a decimal, `0.1+0.2` as `3/10 ≈ 0.3`.
   if (inexactResult(json, decimal)) {
     const numeric = numericLatex(value.N().json, settings.digits)
     if (numeric) return { kind: 'value', exact: numeric, note }
@@ -429,7 +429,7 @@ function present(
 }
 
 function inexactResult(json: unknown, decimal: boolean): boolean {
-  return containsFloat(json) || (decimal && !isRationalValue(json))
+  return containsFloat(json) || (decimal && !isClosedForm(json))
 }
 
 /** Avoid `= 6 ≈ 6`: compare with the exact form, ignoring spacing. */

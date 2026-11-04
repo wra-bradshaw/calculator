@@ -142,13 +142,28 @@ export function isIntegral(json: Json): boolean {
   return false
 }
 
-/** True for a rational number, or a list or matrix of them. */
-export function isRationalValue(json: Json): boolean {
-  if (isIntegral(json)) return true
+const CLOSED_FORM_OPERATORS = new Set([
+  'Add', 'Subtract', 'Multiply', 'Divide', 'Negate', 'Sqrt', 'Root', 'Complex', 'List', 'Matrix',
+])
+
+/**
+ * True for a number built from fractions, roots and π, such as `√3/2` or
+ * `π/3`, or a list or matrix of them. Unevaluated functions like `sin(1/2)`
+ * or `e^{3/10}` don't count.
+ */
+export function isClosedForm(json: Json): boolean {
+  if (isIntegral(json) || json === 'Pi') return true
   if (!Array.isArray(json)) return false
-  if (json[0] === 'Rational') return json.length === 3 && isIntegral(json[1]) && isIntegral(json[2])
-  if (json[0] === 'Negate') return json.length === 2 && isRationalValue(json[1])
-  if (json[0] === 'List' || json[0] === 'Matrix') return json.slice(1).every(isRationalValue)
+  const [head, ...ops] = json
+  if (head === 'Rational') return ops.length === 2 && ops.every(isIntegral)
+  if (head === 'Power') return ops.length === 2 && isClosedForm(ops[0]) && isRational(ops[1])
+  return CLOSED_FORM_OPERATORS.has(head as string) && ops.every(isClosedForm)
+}
+
+function isRational(json: Json): boolean {
+  if (isIntegral(json)) return true
+  if (Array.isArray(json) && json[0] === 'Rational') return json.slice(1).every(isIntegral)
+  if (Array.isArray(json) && json[0] === 'Negate') return isRational(json[1])
   return false
 }
 

@@ -89,14 +89,23 @@ describe('evaluation', () => {
     expect(r).not.toHaveProperty('approx')
   })
 
+  it('shows surds and multiples of π from decimal input', () => {
+    expect(one('\\sqrt{0.75}')).toMatchObject({ exact: '\\frac{\\sqrt{3}}{2}', approx: '0.8660254038' })
+    expect(one('\\arccos(0.5)')).toMatchObject({ exact: '\\frac{\\pi}{3}', approx: '1.047197551' })
+    expect(one('e^{0.3}')).toMatchObject({ exact: '1.349858808' })
+  })
+
   it('carries decimals through definitions', () => {
-    const { results } = run(['a=0.5', 'a+1', 'b=\\sqrt{2.0}', 'b^2', 'b+1', 'f(x)=0.5x', 'f(3)'])
+    const { results } = run([
+      'a=0.5', 'a+1', 'b=\\sqrt{2.0}', 'b+1', 'c=\\sin(0.5)', '2c', 'f(x)=0.5x', 'f(3)',
+    ])
     expect(results[0]).toMatchObject({ exact: '\\frac{1}{2}', approx: '0.5' })
     expect(results[1]).toMatchObject({ exact: '\\frac{3}{2}', approx: '1.5' })
-    expect(results[2]).toMatchObject({ exact: '1.414213562' })
-    expect(results[3]).toMatchObject({ exact: '2' })
-    expect(results[4]).toMatchObject({ exact: '2.414213562' })
-    expect(results[6]).toMatchObject({ exact: '\\frac{3}{2}', approx: '1.5' })
+    expect(results[2]).toMatchObject({ exact: '\\sqrt{2}', approx: '1.414213562' })
+    expect(results[3]).toMatchObject({ exact: '1+\\sqrt{2}', approx: '2.414213562' })
+    expect(results[4]).toMatchObject({ exact: '0.4794255386' })
+    expect(results[5]).toMatchObject({ exact: '0.9588510772' })
+    expect(results[7]).toMatchObject({ exact: '\\frac{3}{2}', approx: '1.5' })
   })
 
   it('solves decimal equations as fractions', () => {

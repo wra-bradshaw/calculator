@@ -35,7 +35,7 @@ export type RowResult =
 export interface Definition {
   name: string
   value: unknown
-  /** Built from decimal input with no exact rational value, so shown as decimals. */
+  /** Built from decimal input with no closed form (fractions, roots, π), so shown as decimals. */
   inexact?: boolean
 }
 
