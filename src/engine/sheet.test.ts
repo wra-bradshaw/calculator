@@ -79,10 +79,28 @@ describe('evaluation', () => {
     expect(r).toMatchObject({ approx: '2.652528598\\times10^{32}' })
   })
 
-  it('shows decimal input as decimals', () => {
-    const r = one('1.5\\times2.25')
-    expect(r).toMatchObject({ exact: '3.375' })
+  it('shows decimal input as fractions where possible', () => {
+    expect(one('1.5\\times2.25')).toMatchObject({ exact: '\\frac{27}{8}', approx: '3.375' })
+    expect(one('0.1+0.2')).toMatchObject({ exact: '\\frac{3}{10}', approx: '0.3' })
+    expect(one('2.5\\times4')).toMatchObject({ exact: '10', approx: undefined })
+    expect(one('1.5\\times10^{-7}')).toMatchObject({ exact: '\\frac{3}{20\\,000\\,000}', approx: '1.5\\times10^{-7}' })
+    const r = one('\\sin(0.5)')
+    expect(r).toMatchObject({ exact: '0.4794255386' })
     expect(r).not.toHaveProperty('approx')
+  })
+
+  it('carries decimals through definitions', () => {
+    const { results } = run(['a=0.5', 'a+1', 'b=\\sqrt{2.0}', 'b^2', 'b+1', 'f(x)=0.5x', 'f(3)'])
+    expect(results[0]).toMatchObject({ exact: '\\frac{1}{2}', approx: '0.5' })
+    expect(results[1]).toMatchObject({ exact: '\\frac{3}{2}', approx: '1.5' })
+    expect(results[2]).toMatchObject({ exact: '1.414213562' })
+    expect(results[3]).toMatchObject({ exact: '2' })
+    expect(results[4]).toMatchObject({ exact: '2.414213562' })
+    expect(results[6]).toMatchObject({ exact: '\\frac{3}{2}', approx: '1.5' })
+  })
+
+  it('solves decimal equations as fractions', () => {
+    expect(one('0.4x=1')).toMatchObject({ exact: 'x=\\frac{5}{2}', approx: 'x=2.5' })
   })
 
   it('does calculus', () => {

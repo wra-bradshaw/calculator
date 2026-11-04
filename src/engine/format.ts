@@ -142,6 +142,56 @@ export function isIntegral(json: Json): boolean {
   return false
 }
 
+/** True for a rational number, or a list or matrix of them. */
+export function isRationalValue(json: Json): boolean {
+  if (isIntegral(json)) return true
+  if (!Array.isArray(json)) return false
+  if (json[0] === 'Rational') return json.length === 3 && isIntegral(json[1]) && isIntegral(json[2])
+  if (json[0] === 'Negate') return json.length === 2 && isRationalValue(json[1])
+  if (json[0] === 'List' || json[0] === 'Matrix') return json.slice(1).every(isRationalValue)
+  return false
+}
+
+const DECIMAL_STRING = /^(-?)(\d*)\.?(\d*)(?:e([+-]?\d+))?$/i
+
+/** Replace every decimal literal with the exact fraction it denotes. */
+export function rationalize(json: Json): Json {
+  if (typeof json === 'number') {
+    return Number.isInteger(json) || !Number.isFinite(json) ? json : decimalToRational(String(json)) ?? json
+  }
+  if (json && typeof json === 'object' && 'num' in json) {
+    return decimalToRational(String((json as { num: string }).num)) ?? json
+  }
+  if (Array.isArray(json)) return json.map((op, i) => (i === 0 ? op : rationalize(op)))
+  return json
+}
+
+function decimalToRational(s: string): Json | null {
+  const match = DECIMAL_STRING.exec(s)
+  if (!match || (match[2] === '' && match[3] === '')) return null
+  const [, sign, whole, fraction, exp] = match
+  let numerator = BigInt(sign + (whole || '0') + fraction)
+  let denominator = 1n
+  const shift = Number(exp ?? 0) - fraction.length
+  if (shift >= 0) numerator *= 10n ** BigInt(shift)
+  else denominator = 10n ** BigInt(-shift)
+  const divisor = gcd(numerator < 0n ? -numerator : numerator, denominator)
+  numerator /= divisor
+  denominator /= divisor
+  return denominator === 1n ? bigintJson(numerator) : ['Rational', bigintJson(numerator), bigintJson(denominator)]
+}
+
+function gcd(a: bigint, b: bigint): bigint {
+  while (b !== 0n) [a, b] = [b, a % b]
+  return a
+}
+
+function bigintJson(n: bigint): Json {
+  return n >= BigInt(Number.MIN_SAFE_INTEGER) && n <= BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number(n)
+    : { num: n.toString() }
+}
+
 /** True if the expression contains a non-integer float anywhere. */
 export function containsFloat(json: Json): boolean {
   if (typeof json === 'number') return !Number.isInteger(json)

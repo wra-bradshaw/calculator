@@ -6,7 +6,9 @@ import {
   errorMessage,
   exactLatex,
   isIntegral,
+  isRationalValue,
   numericLatex,
+  rationalize,
 } from './format'
 import { classifyRow, rewriteApplications, type RowShape } from './latex'
 import type {
@@ -60,6 +62,7 @@ export function evaluateSheet(
 
   const failed = new Map<string, Row>()
   const keyOf = new Map<string, string>()
+  const inexact = new Set<string>()
   for (const row of rows) {
     if (row.defines && row.problem) failed.set(row.defines, row)
   }
@@ -67,8 +70,10 @@ export function evaluateSheet(
   for (const row of order) {
     const report = (entry: Omit<CacheEntry, 'key'>) => {
       const key = row.key ?? ''
-      if (row.defines && entry.definition) keyOf.set(row.defines, key)
-      else if (row.defines) failed.set(row.defines, row)
+      if (row.defines && entry.definition) {
+        keyOf.set(row.defines, key)
+        if (entry.definition.inexact) inexact.add(row.defines)
+      } else if (row.defines) failed.set(row.defines, row)
       callbacks.onResult(row.id, { key, ...entry })
     }
 
@@ -110,7 +115,7 @@ export function evaluateSheet(
     callbacks.onStart?.(row.id, row.key)
     let entry: Omit<CacheEntry, 'key'>
     try {
-      entry = evaluateRow(ce, row, settings)
+      entry = evaluateRow(ce, row, settings, row.deps.some((dep) => inexact.has(dep)))
     } catch (err) {
       entry = { result: { kind: 'error', message: messageOf(err) } }
     }
@@ -297,6 +302,7 @@ function evaluateRow(
   ce: ComputeEngine,
   row: Row,
   settings: Settings,
+  depsInexact: boolean,
 ): Omit<CacheEntry, 'key'> {
   const shape = row.shape
   switch (shape.type) {
@@ -309,37 +315,48 @@ function evaluateRow(
       const params = shape.params.map((p) => sym(ce.parse(p))!)
       return {
         result: { kind: 'defined', name: shape.name },
-        definition: { name: row.defines!, value: ['Function', body.json, ...params] },
+        definition: {
+          name: row.defines!,
+          value: ['Function', rationalize(body.json), ...params],
+          inexact: depsInexact || containsFloat(body.json) || undefined,
+        },
       }
     }
 
     case 'variable': {
       const rhs = ce.parse(shape.rhs)
       if (!rhs.isValid || shape.rhs.trim() === '') return incomplete(rhs)
-      const value = rhs.evaluate()
+      const decimal = depsInexact || containsFloat(rhs.json)
+      const value = exactly(ce, rhs).evaluate()
       const error = errorMessage(value.json)
       if (error) return { result: { kind: 'error', message: error } }
       // `a = 3` and `A = (matrix)` need no answer; `a = 3 + 4` shows `7`.
       const trivial =
-        /^\s*-?\d+(\.\d+)?\s*$/.test(shape.rhs) ||
+        /^\s*-?\d+\s*$/.test(shape.rhs) ||
         (/^\s*\\begin\{[pbvV]?matrix\}/.test(shape.rhs) &&
           exactLatex(ce, rhs) === exactLatex(ce, value))
       return {
-        result: trivial ? { kind: 'value' } : present(ce, value, settings),
-        definition: { name: row.defines!, value: value.json },
+        result: trivial ? { kind: 'value' } : present(ce, value, settings, decimal),
+        definition: {
+          name: row.defines!,
+          value: value.json,
+          inexact: (decimal && !isRationalValue(value.json)) || undefined,
+        },
       }
     }
 
     case 'expression': {
-      const expr = ce.parse(shape.latex)
-      if (!expr.isValid) return incomplete(expr)
-      if (isEquation(expr)) return { result: solveEquation(ce, expr, settings) }
+      const parsed = ce.parse(shape.latex)
+      if (!parsed.isValid) return incomplete(parsed)
+      const decimal = depsInexact || containsFloat(parsed.json)
+      const expr = exactly(ce, parsed)
+      if (isEquation(expr)) return { result: solveEquation(ce, expr, settings, decimal) }
 
       let value = expr.evaluate()
       if (!NO_SIMPLIFY.has(expr.operator)) value = simplest(value)
       const error = errorMessage(value.json)
       if (error) return { result: { kind: 'error', message: error } }
-      return { result: present(ce, value, settings) }
+      return { result: present(ce, value, settings, decimal) }
     }
 
     case 'reserved':
@@ -360,6 +377,11 @@ function incomplete(expr: Expression): Omit<CacheEntry, 'key'> {
   return { result: { kind: 'incomplete' } }
 }
 
+/** Read decimals as the fractions they denote, so `0.1+0.2` is exactly `3/10`. */
+function exactly(ce: ComputeEngine, expr: Expression): Expression {
+  return containsFloat(expr.json) ? ce.box(rationalize(expr.json) as ExpressionInput) : expr
+}
+
 function simplest(value: Expression): Expression {
   try {
     const simplified = value.simplify()
@@ -373,14 +395,16 @@ function present(
   ce: ComputeEngine,
   value: Expression,
   settings: Settings,
+  decimal: boolean,
 ): RowResult {
   const json = value.json
   const note =
     value.operator === 'Integrate' ? 'No closed form found' : undefined
 
-  // Decimal input gives a decimal answer; there's nothing more exact to show.
-  if (containsFloat(json)) {
-    const numeric = numericLatex(json, settings.digits)
+  // Decimal input gives a decimal answer unless it's a fraction: `sin(0.5)`
+  // is shown as a decimal, `0.1+0.2` as `3/10 ≈ 0.3`.
+  if (inexactResult(json, decimal)) {
+    const numeric = numericLatex(value.N().json, settings.digits)
     if (numeric) return { kind: 'value', exact: numeric, note }
   }
 
@@ -402,6 +426,10 @@ function present(
   if (approx && exact && sameNumber(approx, exact)) approx = undefined
 
   return { kind: 'value', exact, approx, note }
+}
+
+function inexactResult(json: unknown, decimal: boolean): boolean {
+  return containsFloat(json) || (decimal && !isRationalValue(json))
 }
 
 /** Avoid `= 6 ≈ 6`: compare with the exact form, ignoring spacing. */
@@ -426,6 +454,7 @@ function solveEquation(
   ce: ComputeEngine,
   expr: Expression,
   settings: Settings,
+  decimal: boolean,
 ): RowResult {
   const unknowns = [...expr.unknowns].sort()
 
@@ -445,6 +474,7 @@ function solveEquation(
       ce,
       solutions.map((s) => ({ [name]: s })),
       settings,
+      decimal,
     )
   }
 
@@ -461,6 +491,7 @@ function solveEquation(
       Object.fromEntries(Object.entries(s).map(([k, v]) => [ce.box(k).latex, v])),
     ),
     settings,
+    decimal,
   )
 }
 
@@ -468,6 +499,7 @@ function describeSolutions(
   ce: ComputeEngine,
   solutions: Record<string, Expression>[],
   settings: Settings,
+  decimal: boolean,
 ): RowResult {
   if (solutions.length === 0) {
     return { kind: 'value', bare: true, exact: '\\text{no solution}' }
@@ -485,9 +517,8 @@ function describeSolutions(
   }
 
   const exact = format((value) =>
-    containsFloat(value.json)
-      ? numericLatex(value.json, settings.digits)
-      : exactLatex(ce, value),
+    (inexactResult(value.json, decimal) && numericLatex(value.N().json, settings.digits)) ||
+    exactLatex(ce, value),
   )!
   const approx = format((value) =>
     value.unknowns.length === 0 ? numericLatex(value.N().json, settings.digits) : null,

@@ -35,6 +35,8 @@ export type RowResult =
 export interface Definition {
   name: string
   value: unknown
+  /** Built from decimal input with no exact rational value, so shown as decimals. */
+  inexact?: boolean
 }
 
 export interface CacheEntry {
